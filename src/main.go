@@ -62,17 +62,20 @@ func updateItemAction(w http.ResponseWriter, r *http.Request) {
 	log.Println("updateItemAction")
 	id := getIDValue(r)
 	
-	item := findByID(id)
-
+	var item *models.Item
+	item = findByID(id)
 	item.Done = true
 
-	respondJSON(w, item);
+	log.Println(items)
 
+	respondJSON(w, item);
 }
 
 func deleteItemAction(w http.ResponseWriter, r *http.Request) {
 	log.Println("deleteItemAction")
-	w.WriteHeader(http.StatusNotFound)
+	id := getIDValue(r)
+	removeByID(id)
+	w.WriteHeader(http.StatusOK)
 }
 
 func getItemAction(w http.ResponseWriter, r *http.Request) {
@@ -82,6 +85,25 @@ func getItemAction(w http.ResponseWriter, r *http.Request) {
 	itemFound := findByID(int(id))
 
 	respondJSON(w, itemFound)
+}
+
+func replaceItem(item models.Item) {
+	for index, item := range items {
+        if item.ID == item.ID {
+			items[index] = item
+            break
+        }
+	}
+}
+
+
+func removeByID(id int) {
+	for index, item := range items {
+        if item.ID == id {
+            items = append(items[:index], items[index+1:]...)
+            break
+        }
+	}
 }
 
 func getIDValue(r *http.Request) int {
