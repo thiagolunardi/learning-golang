@@ -1,4 +1,4 @@
-# Learning GgoLang
+# Learning GoLang
 
  1. :heavy_check_mark: Build a Hello World;
  2. :heavy_check_mark: Build a TODO list app;
