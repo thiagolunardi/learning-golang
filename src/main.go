@@ -63,17 +63,12 @@ func updateItemAction(w http.ResponseWriter, r *http.Request) {
 	id := getIDValue(r)
 	
 	item := findByID(id)
-	newItem := models.Item {
-		ID: item.ID,
-		Done: true,
-		Title: item.Title,
-	}
-
-	replaceItem(newItem)
+	
+	item.Done = true
 
 	log.Println(items)
 
-	respondJSON(w, newItem);
+	respondJSON(w, item);
 }
 
 func deleteItemAction(w http.ResponseWriter, r *http.Request) {
@@ -91,16 +86,6 @@ func getItemAction(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, itemFound)
 }
-
-func replaceItem(newItem models.Item) {
-	for index, item := range items {
-        if newItem.ID == item.ID {
-			items[index] = newItem
-            break
-        }
-	}
-}
-
 
 func removeByID(id int) {
 	for index, item := range items {
@@ -121,10 +106,9 @@ func getIDValue(r *http.Request) int {
 }
 
 func findByID(id int) *models.Item {
-  allItems := &items
-  for _, item := range *allItems {
-    if item.ID == id {
-      return &item
+  for i := range items {
+    if items[i].ID == id {
+      return &items[i]
     }
   }
   return nil
