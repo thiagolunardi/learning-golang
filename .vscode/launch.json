@@ -17,7 +17,9 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}",
-      "env": {},
+      "env": {
+        "DbType": "MongoDb"
+      },
       "args": []
     }
   ]

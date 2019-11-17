@@ -17,6 +17,8 @@ var items models.Items
 // NewClient -
 func NewClient() (*Repo, error) {
 
+	log.Println("Using In-Memory database")
+
 	dataSeed()
 
 	return &Repo{

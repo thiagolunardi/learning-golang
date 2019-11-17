@@ -1,6 +1,8 @@
 package data
 
 import (
+	"os"
+	"github.com/thiagolunardi/learning-golang/data/mongodb"
 	"github.com/thiagolunardi/learning-golang/data/memory"
 	"github.com/thiagolunardi/learning-golang/models"
 )
@@ -15,6 +17,11 @@ type TodoRepository interface {
 }
 
 // NewClient -
-func NewClient() (TodoRepository, error) {
-	return memory.NewClient()
+func NewClient() (TodoRepository, error) {	
+	switch dbType := os.Getenv("DbType"); dbType {
+	case "MongoDb": 
+		return mongodb.NewClient()
+	default:
+		return memory.NewClient()
+	}
 }
