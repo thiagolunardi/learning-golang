@@ -1,15 +1,18 @@
 package mongodb
 
 import (
-	"log"
-	"go.mongodb.org/mongo-driver/bson"
+	"strings"
 	"context"
+	"log"
 	"time"
+
 	"github.com/thiagolunardi/learning-golang/data/dberrors"
 	"github.com/thiagolunardi/learning-golang/models"
-	"go.mongodb.org/mongo-driver/mongo/readpref"
-    "go.mongodb.org/mongo-driver/mongo"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
     "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 // Repo -
@@ -27,37 +30,49 @@ var itemsCollection *mongo.Collection
 // NewClient -
 func NewClient() (*Repo, error) {
 
-	dbClient, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	if err != nil { log.Fatal(err) }
-
-	dbClient.Ping(context.Background(), readpref.Primary())
+	pingServer()
 	log.Println("Using MongoDb database")
 
 	itemsCollection = dbClient.Database("todo").Collection("items")
+
+	dataSeed()
 
 	return &Repo{
 		client: "MongoDB",
 	}, nil
 }
 
-func getConnection () {
-	dbContext, cancelFunc = context.WithTimeout(context.Background(), 3*time.Second)
-	err := dbClient.Connect(dbContext)
+func openConnection () {
+	var err error
+	dbClient, err = mongo.Connect(getContext(), options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil { log.Fatal(err)}
 }
 
 func closeConnection() {
-	cancelFunc()
 	err := dbClient.Disconnect(dbContext)
 	if err != nil { log.Fatal(err) } 
 }
 
+func pingServer() {
+	var err error
+	dbClient, err = mongo.Connect(getContext(), options.Client().ApplyURI("mongodb://localhost:27017"))
+	if err != nil { log.Fatal(err)}
+
+	err = dbClient.Ping(getContext(), readpref.Primary())
+}
+
+func getContext() (context.Context) {
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+
+	return ctx
+}
+
 // List -
 func (repo *Repo) List() (models.Items, error) {
-	getConnection()
+	openConnection()
 	defer closeConnection()
 
-	cur, err := itemsCollection.Find(context.Background(), bson.D{})
+	cur, err := itemsCollection.Find(getContext(), bson.D{})
 	if err != nil { log.Fatal(err) }
 	defer cur.Close(dbContext)
 
@@ -75,19 +90,28 @@ func (repo *Repo) List() (models.Items, error) {
 
 // Get -
 func (repo *Repo) Get(ID int) (*models.Item, error) {
+	openConnection()
+	defer closeConnection()
 
 	filter := bson.M { "id": ID }
 	
 	item := models.Item{}
 	err := itemsCollection.FindOne(dbContext, filter).Decode(&item)
 	
-	if err != nil { log.Fatal(err) }
+	if err != nil { 
+		if strings.Contains(err.Error(), "no documents in result") {
+			return nil, nil
+		}
+		log.Fatal(err) 
+	}
 
 	return &item, err
 }
 
 // Create -
 func (repo *Repo) Create(item *models.Item) (*models.Item, error) {
+	openConnection()
+	defer closeConnection()
 
 	res, err := itemsCollection.InsertOne(dbContext, item)
 	if err != nil { log.Fatal(err) }
@@ -99,6 +123,8 @@ func (repo *Repo) Create(item *models.Item) (*models.Item, error) {
 
 // Update -
 func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
+	openConnection()
+	defer closeConnection()
 
 	filter := bson.D {{ "id", item.ID }}
 	update := bson.D{
@@ -121,6 +147,8 @@ func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
 
 // Delete -
 func (repo *Repo) Delete(ID int) error {
+	openConnection()
+	defer closeConnection()
 
 	filter := bson.D {{ "id", ID }}
 	
@@ -130,7 +158,23 @@ func (repo *Repo) Delete(ID int) error {
 	return err
 }
 
-func (repo *Repo) dataSeed() {
+func any() bool {
+	openConnection()
+	defer closeConnection()
+
+	filter := bson.D {{ "_id", bson.D{{"$exists", true}}}}
+	ctx := getContext()
+	cur, err := itemsCollection.Find(ctx, filter)
+	if err != nil { log.Fatal(err) }
+	defer cur.Close(ctx)
+
+	return cur.Next(ctx)
+}
+
+func dataSeed() {
+	
+	if any() { return }
+
 	log.Println("Seeding data...")
 
 	items := []models.Item{

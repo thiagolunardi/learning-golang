@@ -89,6 +89,7 @@ func getIDValue(r *http.Request) int {
 }
 
 func respondJSON(w http.ResponseWriter, data interface{}) {
+	log.Println(data)
 	if data == nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
