@@ -22,62 +22,60 @@ type Repo struct {
 
 var dbClient *mongo.Client
 
-var dbContext context.Context
-var cancelFunc context.CancelFunc
-
-var itemsCollection *mongo.Collection
-
 // NewClient -
 func NewClient() (*Repo, error) {
 
-	pingServer()
-	log.Println("Using MongoDb database")
+	if dbClient == nil {
+	
+		var err error
+		dbClient, err = getClient()
+		if err != nil { log.Fatal(err) }
 
-	itemsCollection = dbClient.Database("todo").Collection("items")
+		ctx, _ := getContext()
+		dbClient.Connect(ctx)
+		defer dbClient.Disconnect(ctx)
 
-	dataSeed()
+		err = dbClient.Ping(ctx, readpref.Primary())
+		if err != nil { log.Fatal(err)}
+		
+		log.Println("Using MongoDb database")
+
+		dataSeed()
+
+		log.Println("MongoDb initialized.")
+	}
 
 	return &Repo{
 		client: "MongoDB",
 	}, nil
 }
 
-func openConnection () {
-	var err error
-	dbClient, err = mongo.Connect(getContext(), options.Client().ApplyURI("mongodb://localhost:27017"))
-	if err != nil { log.Fatal(err)}
+func getClient() (*mongo.Client, error) {
+	return mongo.NewClient(options.Client().ApplyURI("mongodb://0.0.0.0:27017"))
 }
 
-func closeConnection() {
-	err := dbClient.Disconnect(dbContext)
-	if err != nil { log.Fatal(err) } 
+func getItemCollection(dbClient *mongo.Client) (*mongo.Collection) {
+	return dbClient.Database("todo").Collection("items")
 }
 
-func pingServer() {
-	var err error
-	dbClient, err = mongo.Connect(getContext(), options.Client().ApplyURI("mongodb://localhost:27017"))
-	if err != nil { log.Fatal(err)}
-
-	err = dbClient.Ping(getContext(), readpref.Primary())
-}
-
-func getContext() (context.Context) {
-	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
-
-	return ctx
+func getContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 30*time.Second)
 }
 
 // List -
-func (repo *Repo) List() (models.Items, error) {
-	openConnection()
-	defer closeConnection()
+func (repo *Repo) List(ctx context.Context) (models.Items, error) {
+	ctx, _ := getContext()
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
 
-	cur, err := itemsCollection.Find(getContext(), bson.D{})
+	itemsCollection := getItemCollection(dbClient)
+
+	cur, err := itemsCollection.Find(ctx, bson.D{})
 	if err != nil { log.Fatal(err) }
-	defer cur.Close(dbContext)
+	defer cur.Close(ctx)
 
 	items := models.Items{}
-	for cur.Next(dbContext) {
+	for cur.Next(ctx) {
 		var item models.Item
 		err := cur.Decode(&item)
 		if err != nil { log.Fatal(err) }
@@ -89,14 +87,19 @@ func (repo *Repo) List() (models.Items, error) {
 }
 
 // Get -
-func (repo *Repo) Get(ID int) (*models.Item, error) {
-	openConnection()
-	defer closeConnection()
+func (repo *Repo) Get(ctx context.Context, ID int) (*models.Item, error) {
+	ctx, cancel := getContext()
+	defer cancel()
+
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
+
+	itemsCollection := getItemCollection(dbClient)
 
 	filter := bson.M { "id": ID }
 	
 	item := models.Item{}
-	err := itemsCollection.FindOne(dbContext, filter).Decode(&item)
+	err := itemsCollection.FindOne(ctx, filter).Decode(&item)
 	
 	if err != nil { 
 		if strings.Contains(err.Error(), "no documents in result") {
@@ -109,11 +112,16 @@ func (repo *Repo) Get(ID int) (*models.Item, error) {
 }
 
 // Create -
-func (repo *Repo) Create(item *models.Item) (*models.Item, error) {
-	openConnection()
-	defer closeConnection()
+func (repo *Repo) Create(ctx context.Context,item *models.Item) (*models.Item, error) {
+	ctx, cancel := getContext()
+	defer cancel()
 
-	res, err := itemsCollection.InsertOne(dbContext, item)
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
+
+	itemsCollection := getItemCollection(dbClient)
+
+	res, err := itemsCollection.InsertOne(ctx, item)
 	if err != nil { log.Fatal(err) }
 
 	item.ID = res.InsertedID.(int)
@@ -122,9 +130,14 @@ func (repo *Repo) Create(item *models.Item) (*models.Item, error) {
 }
 
 // Update -
-func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
-	openConnection()
-	defer closeConnection()
+func (repo *Repo) Update(ctx context.Context, item *models.Item) (*models.Item, error) {
+	ctx, cancel := getContext()
+	defer cancel()
+
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
+
+	itemsCollection := getItemCollection(dbClient)
 
 	filter := bson.D {{ "id", item.ID }}
 	update := bson.D{
@@ -135,7 +148,7 @@ func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
 				{"title", item.Title},
 		}}}
 
-	result, err := itemsCollection.UpdateOne(dbContext, filter, update)
+	result, err := itemsCollection.UpdateOne(ctx, filter, update)
 	if err != nil { log.Fatal(err) }
 
 	if result.ModifiedCount == 0 {
@@ -146,24 +159,31 @@ func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
 }
 
 // Delete -
-func (repo *Repo) Delete(ID int) error {
-	openConnection()
-	defer closeConnection()
+func (repo *Repo) Delete(ctx context.Context,ID int) error {
+	ctx, cancel := getContext()
+	defer cancel()
+
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
+
+	itemsCollection := getItemCollection(dbClient)
 
 	filter := bson.D {{ "id", ID }}
 	
-	_, err := itemsCollection.DeleteOne(dbContext, filter)
+	_, err := itemsCollection.DeleteOne(ctx, filter)
 	if err != nil { log.Fatal(err) }
 
 	return err
 }
 
 func any() bool {
-	openConnection()
-	defer closeConnection()
+	ctx, _ := getContext()
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
+
+	itemsCollection := getItemCollection(dbClient)
 
 	filter := bson.D {{ "_id", bson.D{{"$exists", true}}}}
-	ctx := getContext()
 	cur, err := itemsCollection.Find(ctx, filter)
 	if err != nil { log.Fatal(err) }
 	defer cur.Close(ctx)
@@ -176,6 +196,14 @@ func dataSeed() {
 	if any() { return }
 
 	log.Println("Seeding data...")
+
+	ctx, cancel := getContext()
+	defer cancel()
+
+	dbClient.Connect(ctx)
+	defer dbClient.Disconnect(ctx)
+
+	itemsCollection := getItemCollection(dbClient)	
 
 	items := []models.Item{
 		models.Item{
@@ -196,7 +224,7 @@ func dataSeed() {
 	}
 
 	opts := options.InsertMany().SetOrdered(false)
-	res, _ := itemsCollection.InsertMany(dbContext, documents, opts)
+	res, _ := itemsCollection.InsertMany(ctx, documents, opts)
 
 	log.Printf("Seeded items with IDs %v\n", res.InsertedIDs)
 }
