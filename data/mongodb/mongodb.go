@@ -64,8 +64,7 @@ func getContext() (context.Context, context.CancelFunc) {
 }
 
 // List -
-func (repo *Repo) List(ctx1 context.Context) (models.Items, error) {
-	ctx, _ := getContext()
+func (repo *Repo) List(ctx context.Context) (models.Items, error) {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
@@ -92,8 +91,7 @@ func (repo *Repo) List(ctx1 context.Context) (models.Items, error) {
 }
 
 // Get -
-func (repo *Repo) Get(ctx1 context.Context, ID int) (*models.Item, error) {
-	ctx, _ := getContext()
+func (repo *Repo) Get(ctx context.Context, ID int) (*models.Item, error) {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
@@ -119,9 +117,7 @@ func (repo *Repo) Get(ctx1 context.Context, ID int) (*models.Item, error) {
 }
 
 // Create -
-func (repo *Repo) Create(ctx1 context.Context,item *models.Item) (*models.Item, error) {
-
-	ctx, _ := getContext()
+func (repo *Repo) Create(ctx context.Context,item *models.Item) (*models.Item, error) {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
@@ -146,8 +142,7 @@ func (repo *Repo) Create(ctx1 context.Context,item *models.Item) (*models.Item, 
 }
 
 // Update -
-func (repo *Repo) Update(ctx1 context.Context, item *models.Item) (*models.Item, error) {
-	ctx, _ := getContext()
+func (repo *Repo) Update(ctx context.Context, item *models.Item) (*models.Item, error) {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
@@ -177,8 +172,7 @@ func (repo *Repo) Update(ctx1 context.Context, item *models.Item) (*models.Item,
 }
 
 // Delete -
-func (repo *Repo) Delete(ctx1 context.Context,ID int) error {
-	ctx, _ := getContext()
+func (repo *Repo) Delete(ctx context.Context,ID int) error {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
@@ -196,8 +190,7 @@ func (repo *Repo) Delete(ctx1 context.Context,ID int) error {
 	return err
 }
 
-func any() bool {
-	ctx, _ := getContext()
+func any(ctx context.Context) bool {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
@@ -215,13 +208,12 @@ func any() bool {
 	return cur.Next(ctx)
 }
 
-func dataSeed() {
+func dataSeed(ctx context.Context) {
 	
-	if any() { return }
+	if any(ctx) { return }
 
 	log.Println("Seeding data...")
 
-	ctx, _ := getContext()
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
