@@ -14,6 +14,7 @@ import (
 
 var dbClient data.TodoRepository
 
+// Initialize - 
 func Initialize() {
 	if dbClient != nil { return }
 
@@ -24,8 +25,6 @@ func Initialize() {
 
 // ListItems -
 func ListItems(w http.ResponseWriter, r *http.Request) {
-
-	dbClient, _ := data.NewClient()
 	items, _ := dbClient.List(r.Context())
 
 	respondOK(w, items)
@@ -70,7 +69,6 @@ func UpdateItem(w http.ResponseWriter, r *http.Request) {
 func DeleteItem(w http.ResponseWriter, r *http.Request) {
 
 	id := getIDValue(r)
-	dbClient, _ := data.NewClient()
 	dbClient.Delete(r.Context(), id)
 
 	w.WriteHeader(http.StatusOK)
@@ -80,7 +78,6 @@ func DeleteItem(w http.ResponseWriter, r *http.Request) {
 func GetItem(w http.ResponseWriter, r *http.Request) {
 
 	id := getIDValue(r)
-	dbClient, _ := data.NewClient()
 	itemFound, _ := dbClient.Get(r.Context(), id)
 
 	if itemFound != nil {
