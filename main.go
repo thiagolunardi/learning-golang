@@ -12,6 +12,7 @@ func main() {
 	log.Println("Server available at following address:")
 	log.Printf("    http://localhost:%d/", httpPort)
 
+	Initialize()
 	handler := NewRouter()
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", httpPort), logRequest(handler)))
 }

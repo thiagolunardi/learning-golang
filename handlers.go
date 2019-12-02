@@ -12,13 +12,22 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var dbClient data.TodoRepository
+
+// Initialize - 
+func Initialize() {
+	if dbClient != nil { return }
+
+	var err error
+	dbClient, err = data.NewClient()
+	if err != nil { log.Fatal(err) }
+}
+
 // ListItems -
 func ListItems(w http.ResponseWriter, r *http.Request) {
+	items, _ := dbClient.List(r.Context())
 
-	dbClient, _ := data.NewClient()
-	items, _ := dbClient.List()
-
-	respondJSON(w, items)
+	respondOK(w, items)
 }
 
 // AddItem -
@@ -31,10 +40,9 @@ func AddItem(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	dbClient, _ := data.NewClient()
-	createdItem, _ := dbClient.Create(&newItem)
+	createdItem, _ := dbClient.Create(r.Context(), &newItem)
 
-	respondJSON(w, createdItem)
+	respondOK(w, createdItem)
 }
 
 // UpdateItem -
@@ -43,26 +51,25 @@ func UpdateItem(w http.ResponseWriter, r *http.Request) {
 	id := getIDValue(r)
 
 	dbClient, _ := data.NewClient()
-	item, _ := dbClient.Get(id)
+	item, _ := dbClient.Get(r.Context(), id)
 
 	if item == nil {
-		respondJSON(w, nil)
+		respondNotFound(w)
 		return
 	}
 
 	item.SetAsDone()
 
-	item, _ = dbClient.Update(item)
+	item, _ = dbClient.Update(r.Context(), item)
 
-	respondJSON(w, item)
+	respondOK(w, item)
 }
 
 // DeleteItem -
 func DeleteItem(w http.ResponseWriter, r *http.Request) {
 
 	id := getIDValue(r)
-	dbClient, _ := data.NewClient()
-	dbClient.Delete(id)
+	dbClient.Delete(r.Context(), id)
 
 	w.WriteHeader(http.StatusOK)
 }
@@ -71,10 +78,13 @@ func DeleteItem(w http.ResponseWriter, r *http.Request) {
 func GetItem(w http.ResponseWriter, r *http.Request) {
 
 	id := getIDValue(r)
-	dbClient, _ := data.NewClient()
-	itemFound, _ := dbClient.Get(id)
+	itemFound, _ := dbClient.Get(r.Context(), id)
 
-	respondJSON(w, itemFound)
+	if itemFound != nil {
+		respondOK(w, itemFound)
+	} else {
+		respondNotFound(w)
+	}
 }
 
 func getIDValue(r *http.Request) int {
@@ -88,12 +98,12 @@ func getIDValue(r *http.Request) int {
 	return int(id)
 }
 
-func respondJSON(w http.ResponseWriter, data interface{}) {
-	if data == nil {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
+func respondOK(w http.ResponseWriter, data interface{}) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(data)
+}
+
+func respondNotFound(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNotFound)
 }

@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"log"
 
 	"github.com/thiagolunardi/learning-golang/data/dberrors"
@@ -17,6 +18,8 @@ var items models.Items
 // NewClient -
 func NewClient() (*Repo, error) {
 
+	log.Println("Using In-Memory database")
+
 	dataSeed()
 
 	return &Repo{
@@ -25,12 +28,12 @@ func NewClient() (*Repo, error) {
 }
 
 // List -
-func (repo *Repo) List() (models.Items, error) {
+func (repo *Repo) List(ctx context.Context) (models.Items, error) {
 	return items, nil
 }
 
 // Get -
-func (repo *Repo) Get(ID int) (*models.Item, error) {
+func (repo *Repo) Get(ctx context.Context, ID int) (*models.Item, error) {
 
 	for index := range items {
 		if items[index].ID == ID {
@@ -42,7 +45,7 @@ func (repo *Repo) Get(ID int) (*models.Item, error) {
 }
 
 // Create -
-func (repo *Repo) Create(item *models.Item) (*models.Item, error) {
+func (repo *Repo) Create(ctx context.Context, item *models.Item) (*models.Item, error) {
 
 	id := 1
 
@@ -60,7 +63,7 @@ func (repo *Repo) Create(item *models.Item) (*models.Item, error) {
 }
 
 // Update -
-func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
+func (repo *Repo) Update(ctx context.Context, item *models.Item) (*models.Item, error) {
 
 	var existingItem *models.Item
 
@@ -81,7 +84,7 @@ func (repo *Repo) Update(item *models.Item) (*models.Item, error) {
 }
 
 // Delete -
-func (repo *Repo) Delete(ID int) error {
+func (repo *Repo) Delete(ctx context.Context, ID int) error {
 
 	for index, item := range items {
 		if item.ID == ID {
