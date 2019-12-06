@@ -20,6 +20,8 @@ type Repo struct {
 	client string
 }
 
+type disconnectFunc func() error
+
 var isInitialized bool
 
 // NewClient -
@@ -63,16 +65,24 @@ func getContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 30*time.Second)
 }
 
-// List -
-func (repo *Repo) List(ctx context.Context) (models.Items, error) {
+func getCollection(ctx context.Context) (*mongo.Collection, disconnectFunc) {
 	dbClient, err := getClient()
 	if err != nil { log.Fatal() }
 
 	err = dbClient.Connect(ctx)
 	if err != nil { log.Fatal() }
-	defer dbClient.Disconnect(ctx)
 
 	itemsCollection := getItemCollection(dbClient)
+
+	return itemsCollection, func() error { 
+		return dbClient.Disconnect(ctx) 
+	}
+}
+
+// List -
+func (repo *Repo) List(ctx context.Context) (models.Items, error) {
+	itemsCollection, disconnect := getCollection(ctx)
+	defer disconnect()
 
 	cur, err := itemsCollection.Find(ctx, bson.D{})
 	if err != nil { log.Fatal(err) }
@@ -92,19 +102,13 @@ func (repo *Repo) List(ctx context.Context) (models.Items, error) {
 
 // Get -
 func (repo *Repo) Get(ctx context.Context, ID int) (*models.Item, error) {
-	dbClient, err := getClient()
-	if err != nil { log.Fatal() }
-
-	err = dbClient.Connect(ctx)
-	if err != nil { log.Fatal() }
-	defer dbClient.Disconnect(ctx)
-
-	itemsCollection := getItemCollection(dbClient)
+	itemsCollection, disconnect := getCollection(ctx)
+	defer disconnect()
 
 	filter := bson.M { "id": ID }
 	
 	item := models.Item{}
-	err = itemsCollection.FindOne(ctx, filter).Decode(&item)
+	err := itemsCollection.FindOne(ctx, filter).Decode(&item)
 	
 	if err != nil { 
 		if strings.Contains(err.Error(), "no documents in result") {
@@ -118,19 +122,13 @@ func (repo *Repo) Get(ctx context.Context, ID int) (*models.Item, error) {
 
 // Create -
 func (repo *Repo) Create(ctx context.Context,item *models.Item) (*models.Item, error) {
-	dbClient, err := getClient()
-	if err != nil { log.Fatal() }
-
-	err = dbClient.Connect(ctx)
-	if err != nil { log.Fatal() }
-	defer dbClient.Disconnect(ctx)
-
-	itemsCollection := getItemCollection(dbClient)
+	itemsCollection, disconnect := getCollection(ctx)
+	defer disconnect()
 
 	filter := bson.D {}
 	opts := options.FindOne().SetSort(bson.D{{"id", -1}})
 	lastItem := models.Item{}
-	err = itemsCollection.FindOne(ctx, filter, opts).Decode(&lastItem)
+	err := itemsCollection.FindOne(ctx, filter, opts).Decode(&lastItem)
 	if err != nil { log.Fatal(err) }
 
 	item.ID = lastItem.ID + 1
@@ -143,23 +141,16 @@ func (repo *Repo) Create(ctx context.Context,item *models.Item) (*models.Item, e
 
 // Update -
 func (repo *Repo) Update(ctx context.Context, item *models.Item) (*models.Item, error) {
-	dbClient, err := getClient()
-	if err != nil { log.Fatal() }
-
-	err = dbClient.Connect(ctx)
-	if err != nil { log.Fatal() }
-	defer dbClient.Disconnect(ctx)
-
-	itemsCollection := getItemCollection(dbClient)
+	itemsCollection, disconnect := getCollection(ctx)
+	defer disconnect()
 
 	filter := bson.D {{ "id", item.ID }}
-	update := bson.D{
-		{
-			"$set", 
-			bson.D {
-				{"done", item.Done },
-				{"title", item.Title},
-		}}}
+	update := bson.D {{
+		"$set", 
+		bson.D {
+			{"done", item.Done },
+			{"title", item.Title},
+	}}}
 
 	result, err := itemsCollection.UpdateOne(ctx, filter, update)
 	if err != nil { log.Fatal(err) }
@@ -173,32 +164,20 @@ func (repo *Repo) Update(ctx context.Context, item *models.Item) (*models.Item, 
 
 // Delete -
 func (repo *Repo) Delete(ctx context.Context,ID int) error {
-	dbClient, err := getClient()
-	if err != nil { log.Fatal() }
-
-	err = dbClient.Connect(ctx)
-	if err != nil { log.Fatal() }
-	defer dbClient.Disconnect(ctx)
-
-	itemsCollection := getItemCollection(dbClient)
+	itemsCollection, disconnect := getCollection(ctx)
+	defer disconnect()
 
 	filter := bson.D {{ "id", ID }}
 	
-	_, err = itemsCollection.DeleteOne(ctx, filter)
+	_, err := itemsCollection.DeleteOne(ctx, filter)
 	if err != nil { log.Fatal(err) }
 
 	return err
 }
 
 func any(ctx context.Context) bool {
-	dbClient, err := getClient()
-	if err != nil { log.Fatal() }
-
-	err = dbClient.Connect(ctx)
-	if err != nil { log.Fatal() }
-	defer dbClient.Disconnect(ctx)
-
-	itemsCollection := getItemCollection(dbClient)
+	itemsCollection, disconnect := getCollection(ctx)
+	defer disconnect()
 
 	filter := bson.D {{ "_id", bson.D{{"$exists", true}}}}
 	cur, err := itemsCollection.Find(ctx, filter)
